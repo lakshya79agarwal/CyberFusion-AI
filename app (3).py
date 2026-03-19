@@ -65,35 +65,40 @@ def log_scan(input_data, module, prediction, confidence=None):
 # -------------------------------
 @st.cache_resource
 def load_all_models():
-    # A. Download TFLite from GitHub Release if missing
+    # 1. DOWNLOAD LOGIC
     if not os.path.exists(IMAGE_MODEL_PATH):
-        with st.spinner("Downloading AI Image Model from GitHub Releases... 🚀"):
+        with st.spinner("Downloading TFLite model... 🚀"):
             try:
-                response = requests.get(MODEL_URL, stream=True)
+                # Adding headers mimics a browser to prevent GitHub from blocking the request
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                response = requests.get(MODEL_URL, headers=headers, stream=True)
+                
                 if response.status_code == 200:
                     with open(IMAGE_MODEL_PATH, "wb") as f:
                         f.write(response.content)
                 else:
-                    st.error(f"GitHub Download Failed. Status: {response.status_code}")
+                    st.error(f"Download Failed! Status: {response.status_code}. Check your Release URL.")
+                    st.stop()
             except Exception as e:
                 st.error(f"Download Error: {e}")
+                st.stop()
 
-    # B. Load all models into memory
+    # 2. LOADING LOGIC
     try:
-        phish = joblib.load('models/phishing_detector (1).pkl')
+        phish = joblib.load('models/phishing_detector.pkl')
         news = joblib.load('models/fake_news_model.pkl')
         tfidf = joblib.load('models/tfidf_vectorizer.pkl')
         
-        # Initialize TFLite Interpreter
+        # Initialize TFLite
         interpreter = tf.lite.Interpreter(model_path=IMAGE_MODEL_PATH)
         interpreter.allocate_tensors()
-        
         return phish, news, tfidf, interpreter
     except Exception as e:
+        # If it still fails here, the file on GitHub itself is broken
+        if os.path.exists(IMAGE_MODEL_PATH):
+            os.remove(IMAGE_MODEL_PATH) # Delete the broken file so it retries next time
         st.error(f"🔴 Load Error: {e}")
-        st.info("Ensure .pkl files are in 'models/' folder and Release URL is correct.")
         st.stop()
-
 # Initialize models globally
 phishing_model, fake_news_model, tfidf_vectorizer, tflite_interpreter = load_all_models()
 
