@@ -250,13 +250,52 @@ with tabs[2]:
                 st.info("Tip: Ensure your model input shape is 128x128.")
 
 # --- TAB 4: LIVE FEED ---
+# --- TAB 3: LIVE FEED (BULLETPROOF VERSION) ---
 with tabs[3]:
-    st.subheader("🌐 Recent Scans")
+    st.subheader("🌐 Real-Time Security Logs")
+    
+    # Add a refresh button for the judges
+    if st.button("🔄 Refresh Live Feed"):
+        st.rerun()
+
     if client:
         try:
+            # 1. Access the specific Database and Collection
             db = client["hackathon_cybershield"]
-            logs = list(db["live_logs"].find().sort("_id", -1).limit(10))
-            if logs:
-                st.table(pd.DataFrame(logs)[['timestamp', 'module', 'input', 'prediction']])
-        except:
-            st.info("Connect to MongoDB to see live feed.")
+            collection = db["live_logs"]
+            
+            # 2. Fetch the last 15 scans, sorted by newest first
+            # We convert the cursor to a list immediately
+            raw_logs = list(collection.find().sort("_id", -1).limit(15))
+            
+            if raw_logs:
+                # 3. Convert to DataFrame for clean display
+                df = pd.DataFrame(raw_logs)
+                
+                # 4. Clean up the DataFrame for the UI
+                # Remove MongoDB's internal '_id' if it exists
+                if '_id' in df.columns:
+                    df = df.drop(columns=['_id'])
+                
+                # Ensure columns exist before displaying to prevent 'KeyError'
+                display_cols = ['timestamp', 'module', 'prediction', 'input']
+                existing_cols = [c for c in display_cols if c in df.columns]
+                
+                # 5. Show as a searchable/sortable dataframe
+                st.dataframe(df[existing_cols], use_container_width=True)
+                
+                st.caption(f"Showing last {len(raw_logs)} security events.")
+            else:
+                st.info("📂 Connection successful, but no scans have been logged yet. Go run a test in the Phishing or Image tabs!")
+                
+        except Exception as e:
+            st.error(f"❌ Database Error: {e}")
+            st.info("Check if your MongoDB User has 'Read/Write' permissions.")
+    else:
+        st.warning("⚠️ MongoDB Not Connected.")
+        st.markdown("""
+        **How to fix:**
+        1. Go to **Streamlit Cloud Settings** -> **Secrets**.
+        2. Ensure your key is named exactly `hackathon_mongo_uri`.
+        3. Ensure the value starts with `mongodb+srv://...`
+        """)
