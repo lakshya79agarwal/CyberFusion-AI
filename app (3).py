@@ -85,7 +85,7 @@ def load_all_models():
 
     # 2. LOADING LOGIC
     try:
-        phish = joblib.load('models/phishing_detector.pkl')
+        phish = joblib.load('models/phishing_detector (1).pkl')
         news = joblib.load('models/fake_news_model.pkl')
         tfidf = joblib.load('models/tfidf_vectorizer.pkl')
         
