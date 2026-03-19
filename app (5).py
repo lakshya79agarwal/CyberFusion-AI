@@ -10,7 +10,6 @@ Original file is located at
 
 import streamlit as st
 import joblib
-import pickle
 import tensorflow as tf
 import numpy as np
 from PIL import Image
@@ -20,31 +19,21 @@ import time
 import pandas as pd
 import os
 import requests
+import keras
 
 # -------------------------------
-# MODEL DOWNLOAD (ONLY IMAGE MODEL)
+# CONFIG
 # -------------------------------
+st.set_page_config(page_title="CyberFusion AI", layout="wide")
+
 MODEL_URL = "https://github.com/lakshya79agarwal/CyberFusion-AI/releases/download/v1.0.0/fake_face_model.keras"
 MODEL_PATH = "models/fake_face_model.keras"
 
-import streamlit as st
-import pymongo
-from datetime import datetime
-
-# 1. DEFINE THIS FIRST (At the top level)
 MONGO_URI = st.secrets.get("hackathon_mongo_uri", "")
 
-# 2. THEN DEFINE THE FUNCTION
-@st.cache_resource
-def get_mongodb_client():
-    # Now the function can "see" MONGO_URI
-    if MONGO_URI:
-        return pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    return None
-
-# 3. THEN CALL THE FUNCTION
-client = get_mongodb_client()
-
+# -------------------------------
+# DOWNLOAD MODEL
+# -------------------------------
 def download_model():
     if not os.path.exists(MODEL_PATH):
         os.makedirs("models", exist_ok=True)
@@ -70,32 +59,31 @@ def download_model():
         st.success("✅ Image model downloaded!")
 
 # -------------------------------
-# LOAD MODELS (CACHED)
+# LOAD MODELS
 # -------------------------------
 @st.cache_resource
 def load_models():
-# ... (keep your download logic here) ...
-    
-    
     try:
+        download_model()
+
         phishing_model = joblib.load('models/phishing_detector (1).pkl')
         fake_news_model = joblib.load('models/fake_news_model.pkl')
         tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
-        
-        # USE KERAS TO LOAD INSTEAD OF TF.KERAS
-        import keras
+
         fake_face_model = keras.models.load_model(MODEL_PATH, compile=False)
-        
+
         return phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model
+
     except Exception as e:
         st.error(f"Critical Error: {e}")
         st.stop()
-        phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model = load_models()
-        
+
+# ✅ LOAD MODELS HERE
+phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model = load_models()
+
 # -------------------------------
 # DATABASE
 # -------------------------------
-# Create the client ONCE at the top of the file
 @st.cache_resource
 def get_mongodb_client():
     if MONGO_URI:
@@ -116,67 +104,26 @@ def log_scan(input_data, module, prediction, confidence=None):
                 "prediction": prediction,
                 "confidence": confidence
             })
-        except Exception as e:
-            # Use st.write only for debugging, otherwise leave as pass
-            # st.write(f"Database error: {e}") 
+        except:
             pass
+
 # -------------------------------
 # FEATURE EXTRACTION
 # -------------------------------
-# Add 'model' as the first argument
 def extract_phishing_features(model, ssl, anchor, traffic, prefix):
     feature_count = model.n_features_in_
     feature_list = [-1.0] * feature_count
+
     feature_list[7] = float(ssl)
     feature_list[13] = float(anchor)
     feature_list[25] = float(traffic)
     feature_list[1] = float(prefix)
+
     return np.array(feature_list, dtype=np.float64).reshape(1, -1)
-# -------------------------------
-# SIDEBAR DASHBOARD
-# -------------------------------
-st.sidebar.title("📊 CyberFusion AI Dashboard")
-
-if MONGO_URI:
-    try:
-        client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
-        logs = list(client["hackathon_cybershield"]["live_logs"].find())
-        df = pd.DataFrame(logs)
-
-        if not df.empty:
-            module_counts = df['module'].value_counts()
-
-            st.sidebar.metric("Phishing Scans", module_counts.get('phishing',0))
-            st.sidebar.metric("Fake News Scans", module_counts.get('fake_news',0))
-            st.sidebar.metric("Image Scans", module_counts.get('fake_image',0))
-
-            phishing_threat = df[(df['module']=='phishing') & (df['prediction']=='PHISHING')].shape[0]
-            fake_news_threat = df[(df['module']=='fake_news') & (df['prediction']=='FAKE')].shape[0]
-            fake_image_threat = df[(df['module']=='fake_image') & (df['prediction']=='FAKE')].shape[0]
-
-            phishing_total = module_counts.get('phishing',1)
-            fake_news_total = module_counts.get('fake_news',1)
-            fake_image_total = module_counts.get('fake_image',1)
-
-            st.sidebar.metric("Phishing Threat %", f"{phishing_threat/phishing_total*100:.1f}%")
-            st.sidebar.metric("Fake News %", f"{fake_news_threat/fake_news_total*100:.1f}%")
-            st.sidebar.metric("Fake Image %", f"{fake_image_threat/fake_image_total*100:.1f}%")
-
-            threat_df = pd.DataFrame({
-                'Module':['Phishing','Fake News','Fake Image'],
-                'Threats':[phishing_threat,fake_news_threat,fake_image_threat]
-            })
-
-            st.sidebar.bar_chart(threat_df.set_index('Module'))
-
-    except:
-        st.sidebar.caption("Unable to fetch dashboard data.")
 
 # -------------------------------
-# UI
+# UI HEADER
 # -------------------------------
-st.set_page_config(page_title="CyberFusion AI", layout="wide")
-
 st.markdown('<h1 style="color:#00ffcc;">🛡️ CyberFusion AI</h1>', unsafe_allow_html=True)
 st.write("AI platform to detect phishing, fake news, and AI-generated images")
 
@@ -203,13 +150,13 @@ with tabs[0]:
             with st.spinner("🕵️ Inspecting URL..."):
                 time.sleep(1)
 
-                features = extract_phishing_features(model,ssl, anchor, traffic, prefix)
+                features = extract_phishing_features(phishing_model, ssl, anchor, traffic, prefix)
                 prediction = phishing_model.predict(features)
 
                 try:
                     confidence = max(phishing_model.predict_proba(features)[0]) * 100
                 except:
-                    confidence = 96.7
+                    confidence = 95.0
 
             result_text = "LEGITIMATE" if prediction[0]==1 else "PHISHING"
 
@@ -277,20 +224,15 @@ with tabs[2]:
 # LIVE FEED
 # -------------------------------
 with tabs[3]:
-    st.subheader("🌐 Recent Hackathon Scans")
+    st.subheader("🌐 Recent Scans")
 
     if MONGO_URI:
         try:
-            client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
-
             logs = list(client["hackathon_cybershield"]["live_logs"]
                         .find().sort("_id",-1).limit(10))
 
             if logs:
                 df = pd.DataFrame(logs)
                 st.table(df[['timestamp','module','input','prediction','confidence']])
-            else:
-                st.write("No recent scans yet.")
-
         except:
-            st.caption("Cannot fetch live feed")
+            st.warning("Could not load live data")
