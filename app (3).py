@@ -103,7 +103,7 @@ def load_all_models():
         st.error(f"🔴 Load Error: {e}")
         st.stop()
 # Initialize models globally
-phishing_model, fake_news_model, tfidf_vectorizer, tflite_interpreter = load_all_models()
+phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model = load_all_models()
 
 # -------------------------------
 # 4. Feature Extraction
