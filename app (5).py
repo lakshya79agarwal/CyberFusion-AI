@@ -60,7 +60,7 @@ def load_models():
     if not os.path.exists(MODEL_PATH):
         download_model()
 
-    phishing_model = joblib.load('models/phishing_detector.pkl')
+    phishing_model = joblib.load('models/phishing_detector (1).pkl')
     fake_news_model = pickle.load(open("models/fake_news_model.pkl","rb"))
     tfidf_vectorizer = pickle.load(open("models/tfidf_vectorizer.pkl","rb"))
     fake_face_model = tf.keras.models.load_model(MODEL_PATH)
