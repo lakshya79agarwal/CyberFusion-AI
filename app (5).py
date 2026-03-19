@@ -201,7 +201,7 @@ with tabs[0]:
             with st.spinner("🕵️ Inspecting URL..."):
                 time.sleep(1)
 
-                features = extract_phishing_features(ssl, anchor, traffic, prefix)
+                features = extract_phishing_features(model,ssl, anchor, traffic, prefix)
                 prediction = phishing_model.predict(features)
 
                 try:
