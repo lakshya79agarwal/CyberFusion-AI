@@ -121,15 +121,15 @@ def log_scan(input_data, module, prediction, confidence=None):
 # -------------------------------
 # FEATURE EXTRACTION
 # -------------------------------
-def extract_phishing_features(ssl, anchor, traffic, prefix):
-    feature_count = phishing_model.n_features_in_
+# Add 'model' as the first argument
+def extract_phishing_features(model, ssl, anchor, traffic, prefix):
+    feature_count = model.n_features_in_
     feature_list = [-1.0] * feature_count
     feature_list[7] = float(ssl)
     feature_list[13] = float(anchor)
     feature_list[25] = float(traffic)
     feature_list[1] = float(prefix)
     return np.array(feature_list, dtype=np.float64).reshape(1, -1)
-
 # -------------------------------
 # SIDEBAR DASHBOARD
 # -------------------------------
