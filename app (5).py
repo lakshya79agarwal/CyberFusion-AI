@@ -148,9 +148,9 @@ if MONGO_URI:
 # -------------------------------
 # UI
 # -------------------------------
-st.set_page_config(page_title="CyberShield AI", layout="wide")
+st.set_page_config(page_title="CyberFusion AI", layout="wide")
 
-st.markdown('<h1 style="color:#00ffcc;">🛡️ CyberShield AI</h1>', unsafe_allow_html=True)
+st.markdown('<h1 style="color:#00ffcc;">🛡️ CyberFusion AI</h1>', unsafe_allow_html=True)
 st.write("AI platform to detect phishing, fake news, and AI-generated images")
 
 tabs = st.tabs(["🔗 Phishing Detector","📰 Fake News Detector","🖼 Image Detector","🌐 Live Feed"])
