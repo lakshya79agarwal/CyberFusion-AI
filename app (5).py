@@ -27,6 +27,24 @@ import requests
 MODEL_URL = "https://github.com/lakshya79agarwal/CyberFusion-AI/releases/download/v1.0.0/fake_face_model.keras"
 MODEL_PATH = "models/fake_face_model.keras"
 
+import streamlit as st
+import pymongo
+from datetime import datetime
+
+# 1. DEFINE THIS FIRST (At the top level)
+MONGO_URI = st.secrets.get("hackathon_mongo_uri", "")
+
+# 2. THEN DEFINE THE FUNCTION
+@st.cache_resource
+def get_mongodb_client():
+    # Now the function can "see" MONGO_URI
+    if MONGO_URI:
+        return pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    return None
+
+# 3. THEN CALL THE FUNCTION
+client = get_mongodb_client()
+
 def download_model():
     if not os.path.exists(MODEL_PATH):
         os.makedirs("models", exist_ok=True)
