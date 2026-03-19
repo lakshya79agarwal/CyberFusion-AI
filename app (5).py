@@ -61,12 +61,15 @@ def load_models():
         download_model()
 
     phishing_model = joblib.load('models/phishing_detector (1).pkl')
-    fake_news_model = pickle.load(open("models/fake_news_model.pkl","rb"))
-    tfidf_vectorizer = pickle.load(open("models/tfidf_vectorizer.pkl","rb"))
-    fake_face_model = tf.keras.models.load_model(MODEL_PATH)
-
+    @st.cache_resource
+def load_models():
+    # Use joblib for EVERYTHING
+    phishing_model = joblib.load('models/phishing_detector.pkl')
+    fake_news_model = joblib.load('models/fake_news_model.pkl')
+    tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
+    fake_face_model = tf.keras.models.load_model(IMG_MODEL_PATH)
+    
     return phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model
-
 phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model = load_models()
 
 # -------------------------------
