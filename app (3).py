@@ -11,7 +11,6 @@ Original file is located at
 
 import streamlit as st
 import os
-import requests
 import joblib
 import numpy as np
 import pandas as pd
@@ -19,25 +18,30 @@ from PIL import Image
 from datetime import datetime
 import pymongo
 import tensorflow as tf
+import requests
 
 # -------------------------------
-# Page Config
+# 1. Configuration & Paths
 # -------------------------------
-st.set_page_config(page_title="CyberFusion AI", layout="wide")
-st.markdown('<h1 style="color:#00ffcc;">🛡️ CyberFusion AI</h1>', unsafe_allow_html=True)
-st.write("AI platform to detect phishing, fake news, and AI-generated images")
+st.set_page_config(page_title="CyberFusion AI", layout="wide", page_icon="🛡️")
+
+# UPDATE THIS LINK with your actual GitHub Release URL
+MODEL_URL = "https://github.com/lakshya79agarwal/CyberFusion-AI/releases/download/v1.0/model.h5"
+IMAGE_MODEL_PATH = "models/fake_face_model.tflite"
+os.makedirs("models", exist_ok=True)
 
 # -------------------------------
-# MongoDB (optional)
+# 2. MongoDB Setup
 # -------------------------------
 MONGO_URI = st.secrets.get("hackathon_mongo_uri", "")
+
 @st.cache_resource
 def get_mongo_client():
-    try:
-        if MONGO_URI:
+    if MONGO_URI:
+        try:
             return pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
-    except:
-        return None
+        except:
+            return None
     return None
 
 client = get_mongo_client()
@@ -49,7 +53,7 @@ def log_scan(input_data, module, prediction, confidence=None):
             db["live_logs"].insert_one({
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "module": module,
-                "input": input_data,
+                "input": str(input_data)[:100],
                 "prediction": prediction,
                 "confidence": confidence
             })
@@ -57,125 +61,136 @@ def log_scan(input_data, module, prediction, confidence=None):
             pass
 
 # -------------------------------
-# Model Download / Load
+# 3. Model Loading Logic
 # -------------------------------
-IMAGE_MODEL_URL = "https://drive.google.com/file/d/1u4fA0MhZ8mUpO0KR6T3VeEW3ja2286yW/view?usp=drive_link"
-IMAGE_MODEL_PATH = "models/fake_face_model.tflite"
-os.makedirs("models", exist_ok=True)
-
-def download_image_model():
-    if not os.path.exists(IMAGE_MODEL_PATH):
-        st.warning("Downloading AI Image Model... ⏳")
-        response = requests.get(IMAGE_MODEL_URL, stream=True)
-        with open(IMAGE_MODEL_PATH, "wb") as f:
-            f.write(response.content)
-        st.success("✅ Image model downloaded!")
-
-download_image_model()
-
 @st.cache_resource
-def load_models():
-    try:
-        phishing_model = joblib.load('models/phishing_detector (1).pkl')
-        fake_news_model = joblib.load('models/fake_news_model.pkl')
-        tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
+def load_all_models():
+    # A. Download TFLite from GitHub Release if missing
+    if not os.path.exists(IMAGE_MODEL_PATH):
+        with st.spinner("Downloading AI Image Model from GitHub Releases... 🚀"):
+            try:
+                response = requests.get(MODEL_URL, stream=True)
+                if response.status_code == 200:
+                    with open(IMAGE_MODEL_PATH, "wb") as f:
+                        f.write(response.content)
+                else:
+                    st.error(f"GitHub Download Failed. Status: {response.status_code}")
+            except Exception as e:
+                st.error(f"Download Error: {e}")
 
-        # Load TFLite interpreter
+    # B. Load all models into memory
+    try:
+        phish = joblib.load('models/phishing_detector.pkl')
+        news = joblib.load('models/fake_news_model.pkl')
+        tfidf = joblib.load('models/tfidf_vectorizer.pkl')
+        
+        # Initialize TFLite Interpreter
         interpreter = tf.lite.Interpreter(model_path=IMAGE_MODEL_PATH)
         interpreter.allocate_tensors()
-        return phishing_model, fake_news_model, tfidf_vectorizer, interpreter
+        
+        return phish, news, tfidf, interpreter
     except Exception as e:
-        st.error(f"Model loading error: {e}")
+        st.error(f"🔴 Load Error: {e}")
+        st.info("Ensure .pkl files are in 'models/' folder and Release URL is correct.")
         st.stop()
 
-phishing_model, fake_news_model, tfidf_vectorizer, tflite_interpreter = load_models()
+# Initialize models globally
+phishing_model, fake_news_model, tfidf_vectorizer, tflite_interpreter = load_all_models()
 
 # -------------------------------
-# Tabs UI
+# 4. Feature Extraction
 # -------------------------------
-tabs = st.tabs(["🔗 Phishing Detector","📰 Fake News Detector","🖼 Image Detector","🌐 Live Feed"])
+def extract_phishing_features(ssl, anchor, traffic, prefix):
+    # Dynamically match the feature count of your specific model
+    feature_count = phishing_model.n_features_in_
+    features = np.zeros(feature_count).reshape(1, -1)
+    
+    # Map inputs to your model's specific indices (Adjust if needed)
+    features[0, 1] = prefix
+    features[0, 7] = ssl
+    features[0, 13] = anchor
+    features[0, 25] = traffic
+    return features
 
 # -------------------------------
-# Phishing Tab
+# 5. UI Layout
 # -------------------------------
+st.markdown('<h1 style="color:#00ffcc;">🛡️ CyberFusion AI</h1>', unsafe_allow_html=True)
+st.write("Real-time detection platform for Phishing, Fake News, and AI-Generated Content.")
+
+tabs = st.tabs(["🔗 Phishing", "📰 Fake News", "🖼 Image Detector", "🌐 Live Feed"])
+
+# --- TAB 1: PHISHING ---
 with tabs[0]:
-    st.subheader("Phishing Website Detection")
-    url_input = st.text_input("Paste website URL:")
+    st.subheader("Phishing Website Analysis")
+    url_input = st.text_input("Enter URL:")
+    c1, c2 = st.columns(2)
+    with c1:
+        ssl_val = st.selectbox("SSL HTTPS Status?", [1, 0, -1])
+        anchor_val = st.selectbox("URL Anchor %", [1, 0, -1])
+    with c2:
+        traffic_val = st.selectbox("Web Traffic Rank", [1, 0, -1])
+        prefix_val = st.selectbox("Prefix/Suffix '-'?", [1, -1])
 
-    col1, col2 = st.columns(2)
-    with col1:
-        ssl = st.selectbox("SSL Final State (HTTPS)?", [1,0,-1])
-        anchor = st.selectbox("URL Anchor Percentage", [1,0,-1])
-    with col2:
-        traffic = st.selectbox("Web Traffic Rank", [1,0,-1])
-        prefix = st.selectbox("Prefix/Suffix '-' ?", [1,-1])
-
-    if st.button("🚀 Scan URL"):
+    if st.button("🚀 Run Scan"):
         if url_input:
-            features = np.zeros(phishing_model.n_features_in_).reshape(1, -1)
-            features[0,1] = prefix
-            features[0,7] = ssl
-            features[0,13] = anchor
-            features[0,25] = traffic
+            feat = extract_phishing_features(ssl_val, anchor_val, traffic_val, prefix_val)
+            pred = phishing_model.predict(feat)
+            conf = max(phishing_model.predict_proba(feat)[0])*100 if hasattr(phishing_model, "predict_proba") else 95.0
+            res = "LEGITIMATE" if pred[0] == 1 else "PHISHING"
+            
+            if res == "LEGITIMATE":
+                st.success(f"✅ Result: {res}")
+            else:
+                st.error(f"🚨 Result: {res}")
+            st.write(f"Confidence: {conf:.2f}%")
+            log_scan(url_input, "phishing", res, conf)
 
-            prediction = phishing_model.predict(features)
-            confidence = max(phishing_model.predict_proba(features)[0])*100 if hasattr(phishing_model, "predict_proba") else 95
-            result_text = "LEGITIMATE" if prediction[0]==1 else "PHISHING"
-
-            st.success(result_text) if result_text=="LEGITIMATE" else st.error(result_text)
-            st.write(f"Confidence: {confidence:.2f}%")
-            st.progress(int(confidence))
-            log_scan(url_input, "phishing", result_text, confidence)
-
-# -------------------------------
-# Fake News Tab
-# -------------------------------
+# --- TAB 2: FAKE NEWS ---
 with tabs[1]:
-    st.subheader("Fake News Detection")
-    news_text = st.text_area("Paste news article or headline:")
+    st.subheader("NLP News Verification")
+    news_input = st.text_area("Paste article text:")
+    if st.button("⚖️ Verify"):
+        if news_input:
+            vec = tfidf_vectorizer.transform([news_input])
+            pred = fake_news_model.predict(vec)
+            res = "REAL" if pred[0] == 0 else "FAKE"
+            if res == "REAL": st.success("✅ Real News")
+            else: st.error("❌ Fake News Detected")
+            log_scan(news_input[:50], "fake_news", res)
 
-    if st.button("Analyze News"):
-        if news_text:
-            vector = tfidf_vectorizer.transform([news_text])
-            prediction = fake_news_model.predict(vector)
-            result = "REAL" if prediction[0]==0 else "FAKE"
-            st.success("✅ Real News") if result=="REAL" else st.error("❌ Fake News Detected")
-            log_scan(news_text, "fake_news", result)
-
-# -------------------------------
-# Image Detector Tab
-# -------------------------------
+# --- TAB 3: IMAGE DETECTOR ---
 with tabs[2]:
-    st.subheader("Fake Image Detection")
-    uploaded_file = st.file_uploader("Upload image:", type=["jpg","jpeg","png"])
-
-    if uploaded_file:
-        image = Image.open(uploaded_file).resize((128,128))
-        st.image(image, caption="Uploaded Image", use_container_width=True)
-        img_array = np.array(image, dtype=np.float32)/255.0
-        img_array = np.expand_dims(img_array, axis=0)
-
-        input_details = tflite_interpreter.get_input_details()
-        output_details = tflite_interpreter.get_output_details()
-        tflite_interpreter.set_tensor(input_details[0]['index'], img_array)
+    st.subheader("AI Image Forensics")
+    up_file = st.file_uploader("Upload Image:", type=["jpg", "png", "jpeg"])
+    if up_file:
+        img = Image.open(up_file).convert('RGB').resize((128, 128))
+        st.image(img, caption="Analysis Image", use_container_width=True)
+        
+        # TFLite Preprocessing
+        arr = np.array(img, dtype=np.float32) / 255.0
+        arr = np.expand_dims(arr, axis=0)
+        
+        in_idx = tflite_interpreter.get_input_details()[0]['index']
+        out_idx = tflite_interpreter.get_output_details()[0]['index']
+        
+        tflite_interpreter.set_tensor(in_idx, arr)
         tflite_interpreter.invoke()
-        prediction = tflite_interpreter.get_tensor(output_details[0]['index'])[0][0]
+        score = tflite_interpreter.get_tensor(out_idx)[0][0]
+        
+        res = "REAL" if score < 0.5 else "FAKE"
+        if res == "REAL": st.success(f"✅ Real Image (Score: {1-score:.2%})")
+        else: st.error(f"⚠️ AI Generated (Score: {score:.2%})")
+        log_scan(up_file.name, "fake_image", res, float(score*100))
 
-        result = "REAL" if prediction < 0.5 else "FAKE"
-        st.success("✅ Real Image") if result=="REAL" else st.error("⚠️ Fake / AI Generated Image")
-        st.progress(10 if result=="REAL" else 90)
-        log_scan(uploaded_file.name, "fake_image", result)
-
-# -------------------------------
-# Live Feed Tab
-# -------------------------------
+# --- TAB 4: LIVE FEED ---
 with tabs[3]:
     st.subheader("🌐 Recent Scans")
     if client:
         try:
-            logs = list(client["hackathon_cybershield"]["live_logs"].find().sort("_id",-1).limit(10))
+            db = client["hackathon_cybershield"]
+            logs = list(db["live_logs"].find().sort("_id", -1).limit(10))
             if logs:
-                df = pd.DataFrame(logs)
-                st.table(df[['timestamp','module','input','prediction','confidence']])
+                st.table(pd.DataFrame(logs)[['timestamp', 'module', 'input', 'prediction']])
         except:
-            st.info("No live logs available.")
+            st.info("Connect to MongoDB to see live feed.")
