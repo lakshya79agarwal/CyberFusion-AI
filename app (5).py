@@ -7,7 +7,6 @@ Original file is located at
     https://colab.research.google.com/drive/1-HpJPu8j35gDj1XDM0P9uBnBSIBlfWdB
 """
 
-!pip install streamlit scikit-learn tensorflow numpy pillow pymongo pymongo[srv] pandas requests pymongo[tls]
 
 import streamlit as st
 import joblib
