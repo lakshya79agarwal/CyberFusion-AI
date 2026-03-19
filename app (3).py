@@ -27,7 +27,7 @@ st.set_page_config(page_title="CyberFusion AI", layout="wide", page_icon="ðŸ›¡ï¸
 
 # UPDATE THIS LINK with your actual GitHub Release URL
 MODEL_URL = "https://github.com/lakshya79agarwal/CyberFusion-AI/releases/download/v1.0/model.h5"
-IMAGE_MODEL_PATH = "models/fake_face_model.tflite"
+IMAGE_MODEL_PATH = "models/model.h5"
 os.makedirs("models", exist_ok=True)
 
 # -------------------------------
