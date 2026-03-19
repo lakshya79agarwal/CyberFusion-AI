@@ -75,12 +75,18 @@ def load_models():
 # -------------------------------
 # DATABASE
 # -------------------------------
-MONGO_URI = st.secrets.get("hackathon_mongo_uri", "")
+# Create the client ONCE at the top of the file
+@st.cache_resource
+def get_mongodb_client():
+    if MONGO_URI:
+        return pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    return None
+
+client = get_mongodb_client()
 
 def log_scan(input_data, module, prediction, confidence=None):
-    if MONGO_URI:
+    if client:
         try:
-            client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
             db = client["hackathon_cybershield"]
             collection = db["live_logs"]
             collection.insert_one({
@@ -90,9 +96,10 @@ def log_scan(input_data, module, prediction, confidence=None):
                 "prediction": prediction,
                 "confidence": confidence
             })
-        except:
+        except Exception as e:
+            # Use st.write only for debugging, otherwise leave as pass
+            # st.write(f"Database error: {e}") 
             pass
-
 # -------------------------------
 # FEATURE EXTRACTION
 # -------------------------------
