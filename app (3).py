@@ -59,7 +59,7 @@ def log_scan(input_data, module, prediction, confidence=None):
 # -------------------------------
 @st.cache_resource
 def load_models():
-    phishing_model = joblib.load('models/phishing_detector.pkl')
+    phishing_model = joblib.load('models/phishing_detector (1).pkl')
     fake_news_model = joblib.load('models/fake_news_model.pkl')
     tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
     return phishing_model, fake_news_model, tfidf_vectorizer
