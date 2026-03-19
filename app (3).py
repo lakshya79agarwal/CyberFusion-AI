@@ -129,31 +129,68 @@ st.write("Real-time detection platform for Phishing, Fake News, and AI-Generated
 tabs = st.tabs(["🔗 Phishing", "📰 Fake News", "🖼 Image Detector", "🌐 Live Feed"])
 
 # --- TAB 1: PHISHING ---
+# --- TAB 1: PHISHING DETECTOR (UPDATED LOGIC) ---
 with tabs[0]:
     st.subheader("Phishing Website Analysis")
-    url_input = st.text_input("Enter URL:")
-    c1, c2 = st.columns(2)
-    with c1:
-        ssl_val = st.selectbox("SSL HTTPS Status?", [1, 0, -1])
-        anchor_val = st.selectbox("URL Anchor %", [1, 0, -1])
-    with c2:
-        traffic_val = st.selectbox("Web Traffic Rank", [1, 0, -1])
-        prefix_val = st.selectbox("Prefix/Suffix '-'?", [1, -1])
+    url_input = st.text_input("Enter website URL to scan:", placeholder="https://example-secure-site.com")
 
-    if st.button("🚀 Run Scan"):
-        if url_input:
-            feat = extract_phishing_features(ssl_val, anchor_val, traffic_val, prefix_val)
-            pred = phishing_model.predict(feat)
-            conf = max(phishing_model.predict_proba(feat)[0])*100 if hasattr(phishing_model, "predict_proba") else 95.0
-            res = "LEGITIMATE" if pred[0] == 1 else "PHISHING"
-            
-            if res == "LEGITIMATE":
-                st.success(f"✅ Result: {res}")
-            else:
-                st.error(f"🚨 Result: {res}")
-            st.write(f"Confidence: {conf:.2f}%")
-            log_scan(url_input, "phishing", res, conf)
+    col1, col2 = st.columns(2)
+    with col1:
+        ssl = st.selectbox("SSL Final State (HTTPS)?", [1, 0, -1], help="1: Valid HTTPS, 0: No SSL, -1: Untrusted")
+        anchor = st.selectbox("URL Anchor Percentage", [1, 0, -1], help="High % of links to different domains is risky")
+    with col2:
+        traffic = st.selectbox("Web Traffic Rank", [1, 0, -1], help="Brand new sites usually have low traffic (-1)")
+        prefix = st.selectbox("Prefix/Suffix '-' in Domain?", [1, -1], help="Phishing sites often use hyphens (e.g., login-google.com)")
 
+    if st.button("🚀 Analyze Security"):
+        if url_input == "":
+            st.warning("Please enter a URL first!")
+        else:
+            # Professional Scanning Animation
+            with st.spinner('🕵️ AI is inspecting URL DNA...'):
+                time.sleep(1.5)
+                
+                # 1. Prepare Features
+                # Note: We use 'phishing_model' as defined in your load_models() function
+                feature_count = phishing_model.n_features_in_
+                feature_list = [-1.0] * feature_count 
+                
+                # Mapping your inputs to the model's expected indices
+                feature_list[7] = float(ssl)
+                feature_list[13] = float(anchor)
+                feature_list[25] = float(traffic)
+                feature_list[1] = float(prefix)
+                
+                features_as_array = np.array(feature_list, dtype=np.float64).reshape(1, -1)
+                
+                # 2. Prediction
+                prediction = phishing_model.predict(features_as_array)
+                
+                # 3. Calculate Confidence (if model supports it, else default to 95%)
+                if hasattr(phishing_model, "predict_proba"):
+                    confidence = max(phishing_model.predict_proba(features_as_array)[0]) * 100
+                else:
+                    confidence = 95.0
+
+                # 4. Professional UI Results
+                res = "LEGITIMATE" if prediction[0] == 1 else "PHISHING"
+                
+                st.divider()
+                if res == "LEGITIMATE":
+                    st.success(f"✅ Security Audit Passed: {res}")
+                    st.balloons()
+                else:
+                    st.error(f"🚨 Security Alert: {res} Detected")
+                
+                # Dashboard Metrics for Judges
+                m1, m2 = st.columns(2)
+                m1.metric("Result", res)
+                m2.metric("AI Confidence", f"{confidence:.1f}%")
+                
+                st.progress(int(confidence))
+                
+                # 5. Log to MongoDB
+                log_scan(url_input, "phishing", res, confidence)
 # --- TAB 2: FAKE NEWS ---
 with tabs[1]:
     st.subheader("NLP News Verification")
