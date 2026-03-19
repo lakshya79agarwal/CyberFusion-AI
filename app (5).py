@@ -69,8 +69,9 @@ def load_models():
         phishing_model = joblib.load('models/phishing_detector (1).pkl')
         fake_news_model = joblib.load('models/fake_news_model.pkl')
         tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
-
-        fake_face_model = keras.models.load_model(MODEL_PATH, compile=False)
+        from tensorflow import keras
+        
+        fake_face_model = keras.models.load_model(MODEL_PATH, compile=False, safe_mode=False)
 
         return phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model
 
