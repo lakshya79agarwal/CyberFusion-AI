@@ -65,24 +65,27 @@ def log_scan(input_data, module, prediction, confidence=None):
 # -------------------------------
 @st.cache_resource
 def load_all_models():
-    # 1. DOWNLOAD LOGIC
+    # A. DOWNLOADER (Same as before, just handles .h5)
     if not os.path.exists(IMAGE_MODEL_PATH):
-        with st.spinner("Downloading TFLite model... 🚀"):
-            try:
-                # Adding headers mimics a browser to prevent GitHub from blocking the request
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(MODEL_URL, headers=headers, stream=True)
-                
-                if response.status_code == 200:
-                    with open(IMAGE_MODEL_PATH, "wb") as f:
-                        f.write(response.content)
-                else:
-                    st.error(f"Download Failed! Status: {response.status_code}. Check your Release URL.")
-                    st.stop()
-            except Exception as e:
-                st.error(f"Download Error: {e}")
-                st.stop()
+        with st.spinner("Downloading Keras Model... 🚀"):
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(MODEL_URL, headers=headers)
+            with open(IMAGE_MODEL_PATH, "wb") as f:
+                f.write(response.content)
 
+    # B. UPDATED LOADING LOGIC
+    try:
+        phish = joblib.load('models/phishing_detector (1).pkl')
+        news = joblib.load('models/fake_news_model.pkl')
+        tfidf = joblib.load('models/tfidf_vectorizer.pkl')
+        
+        # USE KERAS instead of TFLite
+        image_model = tf.keras.models.load_model(IMAGE_MODEL_PATH, compile=False)
+        
+        return phish, news, tfidf, image_model
+    except Exception as e:
+        st.error(f"🔴 Load Error: {e}")
+        st.stop()
     # 2. LOADING LOGIC
     try:
         phish = joblib.load('models/phishing_detector (1).pkl')
@@ -166,27 +169,48 @@ with tabs[1]:
 
 # --- TAB 3: IMAGE DETECTOR ---
 with tabs[2]:
-    st.subheader("AI Image Forensics")
-    up_file = st.file_uploader("Upload Image:", type=["jpg", "png", "jpeg"])
+    st.subheader("AI Image Forensic Analysis")
+    up_file = st.file_uploader("Upload Image:", type=["jpg", "png", "jpeg"], key="image_uploader")
+    
     if up_file:
+        # 1. Display and Preprocess
         img = Image.open(up_file).convert('RGB').resize((128, 128))
-        st.image(img, caption="Analysis Image", use_container_width=True)
+        st.image(img, caption="Analysis Preview", use_container_width=True)
         
-        # TFLite Preprocessing
+        # Convert to numpy array and normalize (same as your training)
         arr = np.array(img, dtype=np.float32) / 255.0
-        arr = np.expand_dims(arr, axis=0)
+        arr = np.expand_dims(arr, axis=0) # Add batch dimension: (1, 128, 128, 3)
         
-        in_idx = tflite_interpreter.get_input_details()[0]['index']
-        out_idx = tflite_interpreter.get_output_details()[0]['index']
-        
-        tflite_interpreter.set_tensor(in_idx, arr)
-        tflite_interpreter.invoke()
-        score = tflite_interpreter.get_tensor(out_idx)[0][0]
-        
-        res = "REAL" if score < 0.5 else "FAKE"
-        if res == "REAL": st.success(f"✅ Real Image (Score: {1-score:.2%})")
-        else: st.error(f"⚠️ AI Generated (Score: {score:.2%})")
-        log_scan(up_file.name, "fake_image", res, float(score*100))
+        # 2. Prediction using Keras .predict()
+        with st.spinner("🕵️ Running Forensic Scan..."):
+            try:
+                # Use the 'fake_face_model' (the .h5 model loaded in your load_models function)
+                prediction = fake_face_model.predict(arr)
+                
+                # Assuming your model has 1 output node with Sigmoid activation
+                # 0.0 = Real, 1.0 = Fake
+                score = float(prediction[0][0]) 
+                
+                # 3. UI Results
+                res = "REAL" if score < 0.5 else "FAKE"
+                
+                if res == "REAL":
+                    confidence = (1 - score) * 100
+                    st.success(f"✅ Authentic Image Detected")
+                    st.metric("Probability of Authenticity", f"{confidence:.2f}%")
+                    st.progress(int(confidence))
+                else:
+                    confidence = score * 100
+                    st.error(f"🚨 AI Generated / Manipulated Image")
+                    st.metric("AI Confidence Score", f"{confidence:.2f}%")
+                    st.progress(int(confidence))
+                
+                # 4. Log to MongoDB
+                log_scan(up_file.name, "fake_image", res, confidence)
+
+            except Exception as e:
+                st.error(f"Prediction Error: {e}")
+                st.info("Tip: Ensure your model input shape is 128x128.")
 
 # --- TAB 4: LIVE FEED ---
 with tabs[3]:
