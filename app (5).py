@@ -90,6 +90,8 @@ def load_models():
     except Exception as e:
         st.error(f"Critical Error: {e}")
         st.stop()
+        phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model = load_models()
+        
 # -------------------------------
 # DATABASE
 # -------------------------------
