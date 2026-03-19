@@ -1,0 +1,16 @@
+# Web Framework
+streamlit==1.55.0
+
+# Machine Learning & AI
+scikit-learn==1.6.1
+tensorflow==2.18.0
+joblib==1.4.2
+
+# Data & Database
+pymongo[srv]==4.11.1
+pandas==2.2.3
+numpy==2.2.3
+
+# Image Processing
+Pillow==11.1.0
+requests==2.32.3
