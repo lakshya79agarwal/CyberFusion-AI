@@ -54,32 +54,24 @@ def download_model():
 # -------------------------------
 # LOAD MODELS (CACHED)
 # -------------------------------
-# -------------------------------
-# LOAD MODELS (CACHED)
-# -------------------------------
 @st.cache_resource
 def load_models():
-    # 1. Download image model if missing
-    if not os.path.exists(MODEL_PATH):
-        download_model()
-
-    # 2. Load the models using Joblib for speed and stability
-    # Make sure these filenames match exactly what is in your GitHub 'models' folder
+# ... (keep your download logic here) ...
+    
+    
     try:
         phishing_model = joblib.load('models/phishing_detector (1).pkl')
         fake_news_model = joblib.load('models/fake_news_model.pkl')
         tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
         
-        # Load the Keras model from the path where we downloaded it
-        fake_face_model = tf.keras.models.load_model(MODEL_PATH)
+        # USE KERAS TO LOAD INSTEAD OF TF.KERAS
+        import keras
+        fake_face_model = keras.models.load_model(MODEL_PATH, compile=False)
         
         return phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model
     except Exception as e:
-        st.error(f"Critical Error Loading Models: {e}")
+        st.error(f"Critical Error: {e}")
         st.stop()
-
-# Actually call the function to initialize models
-phishing_model, fake_news_model, tfidf_vectorizer, fake_face_model = load_models()
 # -------------------------------
 # DATABASE
 # -------------------------------
