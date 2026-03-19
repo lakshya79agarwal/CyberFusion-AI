@@ -66,7 +66,7 @@ def load_models():
     # 2. Load the models using Joblib for speed and stability
     # Make sure these filenames match exactly what is in your GitHub 'models' folder
     try:
-        phishing_model = joblib.load('models/phishing_detector.pkl')
+        phishing_model = joblib.load('models/phishing_detector (1).pkl')
         fake_news_model = joblib.load('models/fake_news_model.pkl')
         tfidf_vectorizer = joblib.load('models/tfidf_vectorizer.pkl')
         
